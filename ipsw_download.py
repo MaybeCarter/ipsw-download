@@ -1,3 +1,4 @@
+import argparse
 import os
 import requests
 import hashlib
@@ -145,6 +146,18 @@ except Exception as e:
 output_directory = os.path.expanduser(”~/Library/Application Support/iTunes/iPhone Software Updates”)
 os.makedirs(output_directory, exist_ok=True)
 
-# Run the download function with a 200GB storage limit
+# Run the download function with a configurable storage limit
 
-fetch_latest_ipsws(output_directory, max_storage_gb=200)
+parser = argparse.ArgumentParser(
+    description="Download latest iPhone IPSW files up to a configurable storage limit."
+)
+parser.add_argument(
+    "-s",
+    "--storage",
+    type=float,
+    default=200,
+    help="Maximum storage space to fill, in GB (default: 200).",
+)
+args = parser.parse_args()
+
+fetch_latest_ipsws(output_directory, max_storage_gb=args.storage)
