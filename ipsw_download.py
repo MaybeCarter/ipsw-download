@@ -15,7 +15,7 @@ from tqdm import tqdm
 from urllib3.util.retry import Retry
 
 DEFAULT_STORAGE_GB = 200
-DEFAULT_OUTPUT_DIR = "~/Library/Application Support/iTunes/iPhone Software Updates"
+DEFAULT_OUTPUT_DIR = "~/Library/iTunes/iPhone Software Updates"
 REQUEST_TIMEOUT = (10, 60)  # (connect, read) seconds
 DOWNLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 ESTIMATED_SIZE_GB = 8.0
