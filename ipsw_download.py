@@ -206,9 +206,16 @@ def gather_candidates(session, models: List[dict], keep: int) -> List[Candidate]
 def apply_storage_budget(
     candidates: List[Candidate], max_storage_gb: float, output_dir: str
 ) -> List[Candidate]:
-    """Greedily pick candidates (in input order) that fit within the storage budget."""
+    """Pick candidates in newest-first order until the next one would exceed the budget.
+
+    The budget counts total on-disk usage of selected IPSWs — existing files
+    already on disk count too. We stop (break) at the first candidate that
+    would overflow rather than continuing to look for smaller ones, because
+    the input is ordered newest-device/firmware first and anything after an
+    overflow is for older devices the user doesn't care about.
+    """
     selected: List[Candidate] = []
-    total_new_gb = 0.0
+    total_gb = 0.0
     log.info("Devices under consideration:\n")
     for c in candidates:
         size_note = "" if c.size_bytes is not None else " (estimated)"
@@ -218,13 +225,19 @@ def apply_storage_budget(
         )
         filepath = os.path.join(output_dir, c.filename)
         c.already_present = existing_file_is_valid(filepath, c.md5sum, c.sha1sum)
-        new_cost = 0.0 if c.already_present else c.size_gb
-        if total_new_gb + new_cost > max_storage_gb:
-            log.info("  Skipping — would exceed storage budget (%.2f GB).", max_storage_gb)
-            continue
+        if total_gb + c.size_gb > max_storage_gb:
+            log.info(
+                "  Stopping — adding this would exceed the storage budget (%.2f GB).",
+                max_storage_gb,
+            )
+            break
         selected.append(c)
-        total_new_gb += new_cost
-    log.info("\nTotal estimated new download size: %.2f GB\n", total_new_gb)
+        total_gb += c.size_gb
+    new_gb = sum(c.size_gb for c in selected if not c.already_present)
+    log.info(
+        "\nSelected %d IPSW(s): ~%.2f GB on disk total (%.2f GB to download).\n",
+        len(selected), total_gb, new_gb,
+    )
     return selected
 
 
@@ -402,7 +415,12 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "-s", "--storage", type=float, default=DEFAULT_STORAGE_GB,
-        help=f"Maximum storage space to fill, in GB (default: {DEFAULT_STORAGE_GB}).",
+        help=(
+            f"Total disk budget for selected IPSWs, in GB (default: "
+            f"{DEFAULT_STORAGE_GB}). Existing files on disk count toward "
+            "this budget; scanning stops at the first IPSW that would "
+            "exceed it."
+        ),
     )
     parser.add_argument(
         "-o", "--output", default=DEFAULT_OUTPUT_DIR,
